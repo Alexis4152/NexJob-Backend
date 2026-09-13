@@ -24,6 +24,7 @@ public class ServiceOfferingMapper {
                 .priceType(s.getPriceType().name())
                 .estimatedDurationValue(s.getEstimatedDurationValue())
                 .estimatedDurationUnit(s.getEstimatedDurationUnit() == null ? null : s.getEstimatedDurationUnit().name())
+                .atClientLocation(s.getAtClientLocation())
                 .isActive(s.getIsActive())
                 .images(images == null ? List.of() : images.stream().map(this::toImageResponse).toList())
                 .build();

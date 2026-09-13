@@ -21,6 +21,7 @@ public class ServiceOfferingResponse {
     private String priceType;
     private Integer estimatedDurationValue;
     private String estimatedDurationUnit;
+    private Boolean atClientLocation;
     private Boolean isActive;
     private List<ServiceImageResponse> images;
 }

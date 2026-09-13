@@ -30,6 +30,18 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role_id ON users(role_id);
 
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id                  BIGSERIAL PRIMARY KEY,
+    user_id             BIGINT NOT NULL REFERENCES users(id),
+    token               VARCHAR(100) NOT NULL UNIQUE,
+    attempts            INTEGER NOT NULL DEFAULT 0,
+    expires_at          TIMESTAMP NOT NULL,
+    used_at             TIMESTAMP,
+    created_at          TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
+
 -- ============ CATEGORIAS DE SERVICIO ============
 
 CREATE TABLE IF NOT EXISTS categories (
@@ -91,6 +103,7 @@ CREATE TABLE IF NOT EXISTS service_offerings (
     price_type                  VARCHAR(20) NOT NULL CHECK (price_type IN ('FIJO', 'POR_HORA', 'COTIZACION')),
     estimated_duration_value    INTEGER,
     estimated_duration_unit     VARCHAR(20) NOT NULL DEFAULT 'MINUTOS' CHECK (estimated_duration_unit IN ('MINUTOS', 'DIAS', 'SEMANAS', 'MESES')),
+    at_client_location          BOOLEAN NOT NULL DEFAULT TRUE,
     is_active                   BOOLEAN NOT NULL DEFAULT TRUE,
     created_at                  TIMESTAMP NOT NULL DEFAULT NOW(),
     created_by_user_id          BIGINT REFERENCES users(id),

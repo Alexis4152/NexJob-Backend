@@ -32,6 +32,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ServiceOfferingServiceImpl implements ServiceOfferingService {
 
+    private static final int MAX_IMAGES_PER_SERVICE = 3;
+
     private final ServiceOfferingRepository serviceOfferingRepository;
     private final ServiceImageRepository serviceImageRepository;
     private final CategoryRepository categoryRepository;
@@ -69,6 +71,7 @@ public class ServiceOfferingServiceImpl implements ServiceOfferingService {
                 .priceType(request.getPriceType())
                 .estimatedDurationValue(request.getEstimatedDurationValue())
                 .estimatedDurationUnit(request.getEstimatedDurationUnit() != null ? request.getEstimatedDurationUnit() : DurationUnit.MINUTOS)
+                .atClientLocation(request.getAtClientLocation() != null ? request.getAtClientLocation() : true)
                 .build();
         service.setCreatedBy(SecurityUtils.getCurrentUserOrNull());
         service = serviceOfferingRepository.save(service);
@@ -89,6 +92,7 @@ public class ServiceOfferingServiceImpl implements ServiceOfferingService {
         service.setPriceType(request.getPriceType());
         service.setEstimatedDurationValue(request.getEstimatedDurationValue());
         service.setEstimatedDurationUnit(request.getEstimatedDurationUnit() != null ? request.getEstimatedDurationUnit() : DurationUnit.MINUTOS);
+        service.setAtClientLocation(request.getAtClientLocation() != null ? request.getAtClientLocation() : true);
         service.setUpdatedBy(SecurityUtils.getCurrentUserOrNull());
         service = serviceOfferingRepository.save(service);
         return mapper.toResponse(service, images(id));
@@ -120,11 +124,11 @@ public class ServiceOfferingServiceImpl implements ServiceOfferingService {
     public ServiceOfferingResponse addImage(Long id, MultipartFile file) {
         ServiceOffering service = findMine(id);
         List<ServiceImage> existing = images(id);
-        if (!existing.isEmpty()) {
-            throw new BusinessException("Solo puedes subir una foto por servicio. Elimina la actual para subir otra.");
+        if (existing.size() >= MAX_IMAGES_PER_SERVICE) {
+            throw new BusinessException("Ya alcanzaste el maximo de " + MAX_IMAGES_PER_SERVICE + " fotos por servicio. Elimina alguna para subir otra.");
         }
         String url = fileStorageService.store(file, "services");
-        serviceImageRepository.save(ServiceImage.builder().service(service).url(url).sortOrder(0).build());
+        serviceImageRepository.save(ServiceImage.builder().service(service).url(url).sortOrder(existing.size()).build());
         return mapper.toResponse(service, images(id));
     }
 

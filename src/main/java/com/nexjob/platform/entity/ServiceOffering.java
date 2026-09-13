@@ -48,4 +48,10 @@ public class ServiceOffering extends AuditableEntity {
     @Column(name = "estimated_duration_unit", nullable = false, length = 20)
     @Builder.Default
     private DurationUnit estimatedDurationUnit = DurationUnit.MINUTOS;
+
+    // true: el prestador se traslada al domicilio del cliente. false: el cliente debe acudir
+    // con el prestador.
+    @Column(name = "at_client_location", nullable = false)
+    @Builder.Default
+    private Boolean atClientLocation = true;
 }

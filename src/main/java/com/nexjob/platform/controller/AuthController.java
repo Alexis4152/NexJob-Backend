@@ -1,12 +1,16 @@
 package com.nexjob.platform.controller;
 
 import com.nexjob.platform.dto.ApiResponse;
+import com.nexjob.platform.dto.request.ForgotPasswordRequest;
 import com.nexjob.platform.dto.request.LoginRequest;
 import com.nexjob.platform.dto.request.RegisterProviderRequest;
 import com.nexjob.platform.dto.request.RegisterRequest;
+import com.nexjob.platform.dto.request.ResetPasswordRequest;
+import com.nexjob.platform.dto.request.ValidateResetCodeRequest;
 import com.nexjob.platform.dto.response.LoginResponse;
 import com.nexjob.platform.mapper.UserMapper;
 import com.nexjob.platform.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -43,5 +47,23 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<?>> me() {
         return ResponseEntity.ok(ApiResponse.ok(userMapper.toResponse(authService.getCurrentUser())));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request, HttpServletRequest httpRequest) {
+        authService.forgotPassword(request, httpRequest.getRemoteAddr());
+        return ResponseEntity.ok(ApiResponse.ok(null, "Si el correo esta registrado, te enviamos un codigo para restablecer tu contrasena"));
+    }
+
+    @PostMapping("/validate-reset-code")
+    public ResponseEntity<ApiResponse<Void>> validateResetCode(@Valid @RequestBody ValidateResetCodeRequest request, HttpServletRequest httpRequest) {
+        authService.validateResetCode(request, httpRequest.getRemoteAddr());
+        return ResponseEntity.ok(ApiResponse.ok(null, "Codigo valido"));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request, HttpServletRequest httpRequest) {
+        authService.resetPassword(request, httpRequest.getRemoteAddr());
+        return ResponseEntity.ok(ApiResponse.ok(null, "Tu contrasena fue actualizada correctamente"));
     }
 }
