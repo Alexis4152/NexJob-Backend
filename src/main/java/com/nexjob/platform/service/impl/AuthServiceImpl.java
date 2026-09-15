@@ -27,6 +27,7 @@ import com.nexjob.platform.security.RateLimiter;
 import com.nexjob.platform.security.SecurityUtils;
 import com.nexjob.platform.service.AuthService;
 import com.nexjob.platform.service.EmailService;
+import com.nexjob.platform.service.PostalCodeLookupService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -72,6 +73,7 @@ public class AuthServiceImpl implements AuthService {
     private final CategoryRepository categoryRepository;
     private final ProviderProfileRepository providerProfileRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final PostalCodeLookupService postalCodeLookupService;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
@@ -133,8 +135,13 @@ public class AuthServiceImpl implements AuthService {
                 .bio(request.getBio())
                 .yearsExperience(request.getYearsExperience())
                 .city(request.getCity())
+                .postalCode(request.getPostalCode())
                 .categories(categories)
                 .build();
+        postalCodeLookupService.lookup(request.getPostalCode()).ifPresent(coords -> {
+            profile.setLatitude(coords.latitude());
+            profile.setLongitude(coords.longitude());
+        });
         providerProfileRepository.save(profile);
 
         String token = jwtTokenProvider.generateToken(user);

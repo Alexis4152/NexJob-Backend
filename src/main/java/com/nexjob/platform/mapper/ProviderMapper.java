@@ -18,7 +18,7 @@ public class ProviderMapper {
 
     private final CategoryMapper categoryMapper;
 
-    public ProviderSummaryResponse toSummary(ProviderProfile p, BigDecimal fromPrice) {
+    public ProviderSummaryResponse toSummary(ProviderProfile p, BigDecimal fromPrice, Boolean hasPhotos, Double distanceKm) {
         return ProviderSummaryResponse.builder()
                 .id(p.getId())
                 .businessName(p.getBusinessName())
@@ -31,6 +31,8 @@ public class ProviderMapper {
                 .isVerified(p.getIsVerified())
                 .categories(p.getCategories().stream().map(categoryMapper::toResponse).toList())
                 .fromPrice(fromPrice)
+                .hasPhotos(hasPhotos)
+                .distanceKm(distanceKm)
                 .build();
     }
 
@@ -41,6 +43,7 @@ public class ProviderMapper {
                 .bio(p.getBio())
                 .yearsExperience(p.getYearsExperience())
                 .city(p.getCity())
+                .postalCode(p.getPostalCode())
                 .profileImageUrl(p.getProfileImageUrl())
                 .averageRating(p.getAverageRating())
                 .totalReviews(p.getTotalReviews())

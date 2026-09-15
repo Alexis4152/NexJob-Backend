@@ -16,6 +16,7 @@ public class ProviderSelfResponse {
     private String bio;
     private Integer yearsExperience;
     private String city;
+    private String postalCode;
     private String profileImageUrl;
     private BigDecimal averageRating;
     private Integer totalReviews;

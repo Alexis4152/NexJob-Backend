@@ -11,6 +11,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -28,10 +29,22 @@ public class PublicProviderController {
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String city,
             @RequestParam(required = false) BigDecimal minRating,
+            @RequestParam(required = false) Boolean verified,
+            @RequestParam(required = false) Integer minExperience,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            @RequestParam(required = false) Boolean hasPhotos,
+            @RequestParam(required = false) String availability,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) String serviceType,
+            @RequestParam(required = false) Double lat,
+            @RequestParam(required = false) Double lng,
+            @RequestParam(required = false) Double maxDistanceKm,
             @RequestParam(required = false, defaultValue = "name") String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size) {
-        var result = providerService.search(categoryId, q, city, minRating, sort, PageRequest.of(page, size));
+        var result = providerService.search(categoryId, q, city, minRating, verified, minExperience, minPrice, maxPrice,
+                hasPhotos, availability, date, serviceType, lat, lng, maxDistanceKm, sort, PageRequest.of(page, size));
         return ApiResponse.ok(PageResponse.of(result));
     }
 

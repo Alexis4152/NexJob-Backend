@@ -25,19 +25,25 @@ import com.nexjob.platform.repository.ServiceImageRepository;
 import com.nexjob.platform.repository.ServiceOfferingRepository;
 import com.nexjob.platform.security.SecurityUtils;
 import com.nexjob.platform.service.FileStorageService;
+import com.nexjob.platform.service.PostalCodeLookupService;
 import com.nexjob.platform.service.ProviderService;
 import com.nexjob.platform.service.ProviderSpecifications;
+import com.nexjob.platform.util.GeoUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -53,6 +59,7 @@ public class ProviderServiceImpl implements ProviderService {
     private final ReviewRepository reviewRepository;
     private final BookingRepository bookingRepository;
     private final FileStorageService fileStorageService;
+    private final PostalCodeLookupService postalCodeLookupService;
     private final ProviderMapper providerMapper;
     private final ServiceOfferingMapper serviceOfferingMapper;
     private final ReviewMapper reviewMapper;
@@ -60,28 +67,92 @@ public class ProviderServiceImpl implements ProviderService {
     @Override
     @Transactional(readOnly = true)
     public Page<ProviderSummaryResponse> search(Long categoryId, String q, String city, BigDecimal minRating,
+                                                 Boolean verified, Integer minExperience, BigDecimal minPrice, BigDecimal maxPrice,
+                                                 Boolean hasPhotos, String availability, LocalDate date, String serviceType,
+                                                 Double lat, Double lng, Double maxDistanceKm,
                                                  String sort, Pageable pageable) {
-        Sort tieBreaker = Sort.by(Sort.Direction.ASC, "id");
-        Sort sortSpec;
-        if ("rating".equalsIgnoreCase(sort)) {
-            sortSpec = Sort.by(Sort.Direction.DESC, "averageRating").and(tieBreaker);
-        } else if ("reviews".equalsIgnoreCase(sort)) {
-            sortSpec = Sort.by(Sort.Direction.DESC, "totalReviews").and(tieBreaker);
-        } else {
-            sortSpec = Sort.by(Sort.Direction.ASC, "businessName").and(tieBreaker);
+        Specification<ProviderProfile> spec = ProviderSpecifications.search(
+                categoryId, q, city, minRating, verified, minExperience, minPrice, maxPrice, hasPhotos, availability, date, serviceType);
+
+        if (lat != null && lng != null) {
+            return searchByDistance(spec, lat, lng, maxDistanceKm, sort, pageable);
         }
-        Pageable finalPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sortSpec);
 
-        Page<ProviderProfile> page = providerProfileRepository.findAll(
-                ProviderSpecifications.search(categoryId, q, city, minRating), finalPageable);
+        Pageable finalPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sortFor(sort));
+        Page<ProviderProfile> page = providerProfileRepository.findAll(spec, finalPageable);
+        return page.map(p -> providerMapper.toSummary(p, fromPriceOf(p), hasPhotosOf(p), null));
+    }
 
-        return page.map(p -> {
-            BigDecimal fromPrice = serviceOfferingRepository.findByProvider_IdAndIsActiveTrue(p.getId()).stream()
-                    .map(ServiceOffering::getPrice)
-                    .min(BigDecimal::compareTo)
-                    .orElse(null);
-            return providerMapper.toSummary(p, fromPrice);
-        });
+    /**
+     * No hay soporte de distancia geografica nativo en el Specification dinamico de arriba
+     * (mezclar un ORDER BY calculado con el Sort de Pageable es fragil). El catalogo de
+     * prestadores es pequeno, asi que aqui se trae todo lo que ya cumple el resto de filtros
+     * y la distancia (Haversine, aproximada a nivel ciudad) se calcula y pagina en memoria.
+     */
+    private Page<ProviderSummaryResponse> searchByDistance(Specification<ProviderProfile> spec, double lat, double lng,
+                                                            Double maxDistanceKm, String sort, Pageable pageable) {
+        record Ranked(ProviderProfile provider, Double distanceKm) {
+        }
+
+        Comparator<Ranked> comparator;
+        if ("recomendados".equalsIgnoreCase(sort)) {
+            comparator = Comparator
+                    .comparing((Ranked r) -> Boolean.TRUE.equals(r.provider().getIsVerified()) ? 0 : 1)
+                    .thenComparing((Ranked r) -> r.provider().getAverageRating(), Comparator.reverseOrder())
+                    .thenComparing((Ranked r) -> r.provider().getTotalReviews(), Comparator.reverseOrder());
+        } else if ("rating".equalsIgnoreCase(sort)) {
+            comparator = Comparator.comparing((Ranked r) -> r.provider().getAverageRating(), Comparator.reverseOrder());
+        } else if ("name".equalsIgnoreCase(sort)) {
+            comparator = Comparator.comparing(r -> r.provider().getBusinessName());
+        } else {
+            // "cercanos" (y cualquier otro valor): ya estamos en la rama con lat/lng, tiene sentido.
+            comparator = Comparator.comparing(r -> r.distanceKm() == null ? Double.MAX_VALUE : r.distanceKm());
+        }
+        comparator = comparator.thenComparing(r -> r.provider().getId());
+
+        List<Ranked> ranked = providerProfileRepository.findAll(spec).stream()
+                .map(p -> new Ranked(p, (p.getLatitude() != null && p.getLongitude() != null)
+                        ? GeoUtils.distanceKm(lat, lng, p.getLatitude().doubleValue(), p.getLongitude().doubleValue())
+                        : null))
+                .filter(r -> maxDistanceKm == null || (r.distanceKm() != null && r.distanceKm() <= maxDistanceKm))
+                .sorted(comparator)
+                .toList();
+
+        int total = ranked.size();
+        int from = Math.min(pageable.getPageNumber() * pageable.getPageSize(), total);
+        int to = Math.min(from + pageable.getPageSize(), total);
+
+        List<ProviderSummaryResponse> content = ranked.subList(from, to).stream()
+                .map(r -> providerMapper.toSummary(r.provider(), fromPriceOf(r.provider()), hasPhotosOf(r.provider()), r.distanceKm()))
+                .toList();
+
+        return new PageImpl<>(content, pageable, total);
+    }
+
+    private Sort sortFor(String sort) {
+        Sort tieBreaker = Sort.by(Sort.Direction.ASC, "id");
+        if ("recomendados".equalsIgnoreCase(sort)) {
+            return Sort.by(Sort.Direction.DESC, "isVerified")
+                    .and(Sort.by(Sort.Direction.DESC, "averageRating"))
+                    .and(Sort.by(Sort.Direction.DESC, "totalReviews"))
+                    .and(tieBreaker);
+        } else if ("rating".equalsIgnoreCase(sort)) {
+            return Sort.by(Sort.Direction.DESC, "averageRating").and(tieBreaker);
+        } else if ("reviews".equalsIgnoreCase(sort)) {
+            return Sort.by(Sort.Direction.DESC, "totalReviews").and(tieBreaker);
+        }
+        return Sort.by(Sort.Direction.ASC, "businessName").and(tieBreaker);
+    }
+
+    private BigDecimal fromPriceOf(ProviderProfile p) {
+        return serviceOfferingRepository.findByProvider_IdAndIsActiveTrue(p.getId()).stream()
+                .map(ServiceOffering::getPrice)
+                .min(BigDecimal::compareTo)
+                .orElse(null);
+    }
+
+    private boolean hasPhotosOf(ProviderProfile p) {
+        return serviceImageRepository.existsByService_Provider_IdAndService_IsActiveTrue(p.getId());
     }
 
     @Override
@@ -141,6 +212,13 @@ public class ProviderServiceImpl implements ProviderService {
         profile.setBio(request.getBio());
         profile.setYearsExperience(request.getYearsExperience());
         profile.setCity(request.getCity());
+        profile.setPostalCode(request.getPostalCode());
+        // Solo se sobreescribe lat/lng si el CP existe en el catalogo: si no se encuentra
+        // (o se dejo en blanco) se conserva la coordenada previa en vez de borrarla.
+        postalCodeLookupService.lookup(request.getPostalCode()).ifPresent(coords -> {
+            profile.setLatitude(coords.latitude());
+            profile.setLongitude(coords.longitude());
+        });
         profile.setCategories(categories);
         profile.setUpdatedBy(SecurityUtils.getCurrentUserOrNull());
         return providerMapper.toSelf(providerProfileRepository.save(profile));
@@ -158,7 +236,7 @@ public class ProviderServiceImpl implements ProviderService {
     @Transactional(readOnly = true)
     public Page<ProviderSelfResponse> adminList(String q, Pageable pageable) {
         Page<ProviderProfile> page = providerProfileRepository.findAll(
-                ProviderSpecifications.search(null, q, null, null), pageable);
+                ProviderSpecifications.search(null, q, null, null, null, null, null, null, null, null, null, null), pageable);
         return page.map(providerMapper::toSelf);
     }
 

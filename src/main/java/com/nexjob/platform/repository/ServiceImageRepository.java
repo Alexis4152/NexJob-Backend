@@ -8,4 +8,5 @@ import java.util.List;
 public interface ServiceImageRepository extends JpaRepository<ServiceImage, Long> {
     List<ServiceImage> findByService_IdOrderBySortOrderAsc(Long serviceId);
     void deleteByIdAndService_Id(Long id, Long serviceId);
+    boolean existsByService_Provider_IdAndService_IsActiveTrue(Long providerId);
 }

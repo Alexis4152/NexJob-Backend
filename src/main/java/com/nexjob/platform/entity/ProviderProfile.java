@@ -41,6 +41,20 @@ public class ProviderProfile extends AuditableEntity {
     @Column(length = 100)
     private String city;
 
+    // Codigo postal capturado por el prestador; se usa para calcular latitude/longitude
+    // via PostalCodeLookupService (mas preciso que el centroide por ciudad). Opcional.
+    @Column(name = "postal_code", length = 10)
+    private String postalCode;
+
+    // Coordenadas aproximadas usadas para el filtro/orden de distancia: vienen del codigo
+    // postal cuando esta capturado, o del centroide de la ciudad como respaldo (ver
+    // db/05_add_geo_columns.sql). Nulas hasta que se pueda calcular alguna de las dos.
+    @Column(precision = 9, scale = 6)
+    private BigDecimal latitude;
+
+    @Column(precision = 9, scale = 6)
+    private BigDecimal longitude;
+
     @Column(name = "profile_image_url", length = 500)
     private String profileImageUrl;
 

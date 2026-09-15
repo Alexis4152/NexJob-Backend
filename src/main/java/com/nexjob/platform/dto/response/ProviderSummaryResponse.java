@@ -22,4 +22,7 @@ public class ProviderSummaryResponse {
     private Boolean isVerified;
     private List<CategoryResponse> categories;
     private BigDecimal fromPrice;
+    private Boolean hasPhotos;
+    /** Distancia aproximada en km (a nivel ciudad); null si no se mando ubicacion del cliente. */
+    private Double distanceKm;
 }
