@@ -70,6 +70,21 @@ public class ProviderProfile extends AuditableEntity {
     @Builder.Default
     private Boolean isVerified = false;
 
+    // Los siguientes 3 solo los autoriza un administrador desde el panel admin (no son
+    // auto-computados ni editables por el propio prestador); alimentan la seccion de
+    // "Confianza" del perfil publico (ver ProviderDetail en el frontend).
+    @Column(name = "email_verified", nullable = false)
+    @Builder.Default
+    private Boolean emailVerified = false;
+
+    @Column(name = "phone_verified", nullable = false)
+    @Builder.Default
+    private Boolean phoneVerified = false;
+
+    @Column(name = "profile_complete", nullable = false)
+    @Builder.Default
+    private Boolean profileComplete = false;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "provider_categories",

@@ -27,6 +27,21 @@ public class AdminProviderController {
 
     @PatchMapping("/{id}/verified")
     public ApiResponse<ProviderSelfResponse> setVerified(@PathVariable Long id, @Valid @RequestBody StatusToggleRequest request) {
-        return ApiResponse.ok(providerService.adminSetVerified(id, request.getValue()), "Estado de verificacion actualizado");
+        return ApiResponse.ok(providerService.adminSetVerified(id, request.getValue()), "Identidad actualizada");
+    }
+
+    @PatchMapping("/{id}/email-verified")
+    public ApiResponse<ProviderSelfResponse> setEmailVerified(@PathVariable Long id, @Valid @RequestBody StatusToggleRequest request) {
+        return ApiResponse.ok(providerService.adminSetEmailVerified(id, request.getValue()), "Correo actualizado");
+    }
+
+    @PatchMapping("/{id}/phone-verified")
+    public ApiResponse<ProviderSelfResponse> setPhoneVerified(@PathVariable Long id, @Valid @RequestBody StatusToggleRequest request) {
+        return ApiResponse.ok(providerService.adminSetPhoneVerified(id, request.getValue()), "Telefono actualizado");
+    }
+
+    @PatchMapping("/{id}/profile-complete")
+    public ApiResponse<ProviderSelfResponse> setProfileComplete(@PathVariable Long id, @Valid @RequestBody StatusToggleRequest request) {
+        return ApiResponse.ok(providerService.adminSetProfileComplete(id, request.getValue()), "Perfil actualizado");
     }
 }

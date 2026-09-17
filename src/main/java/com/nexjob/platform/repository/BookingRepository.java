@@ -19,6 +19,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpec
     List<Booking> findByProvider_IdOrderByScheduledAtAsc(Long providerId);
     List<Booking> findByProvider_IdAndStatus(Long providerId, BookingStatus status);
     long countByStatus(BookingStatus status);
+    long countByProvider_IdAndStatus(Long providerId, BookingStatus status);
+    List<Booking> findByStatusAndCreatedAtBefore(BookingStatus status, LocalDateTime cutoff);
 
     boolean existsByProvider_IdAndScheduledAtAndStatusNotIn(Long providerId, LocalDateTime scheduledAt, Collection<BookingStatus> excludedStatuses);
 

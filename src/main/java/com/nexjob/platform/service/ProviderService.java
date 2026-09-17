@@ -37,4 +37,10 @@ public interface ProviderService {
     Page<ProviderSelfResponse> adminList(String q, Pageable pageable);
 
     ProviderSelfResponse adminSetVerified(Long providerId, boolean verified);
+
+    ProviderSelfResponse adminSetEmailVerified(Long providerId, boolean verified);
+
+    ProviderSelfResponse adminSetPhoneVerified(Long providerId, boolean verified);
+
+    ProviderSelfResponse adminSetProfileComplete(Long providerId, boolean complete);
 }

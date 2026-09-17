@@ -1,5 +1,6 @@
 package com.nexjob.platform.dto.request;
 
+import com.nexjob.platform.enums.BookingUrgency;
 import com.nexjob.platform.enums.PaymentMethod;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
@@ -24,9 +25,12 @@ public class BookingRequest {
     private String city;
 
     @NotNull(message = "La fecha de la visita es obligatoria")
-    @Future(message = "La fecha de la visita debe ser en el futuro")
+    @Future(message = "La fecha de la visita debe ser posterior a la actual")
     private LocalDateTime scheduledAt;
 
     @NotNull(message = "El metodo de pago es obligatorio")
     private PaymentMethod paymentMethod;
+
+    @NotNull(message = "Indica que tan pronto necesitas el servicio")
+    private BookingUrgency urgency;
 }

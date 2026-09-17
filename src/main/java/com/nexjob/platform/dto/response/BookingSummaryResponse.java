@@ -17,6 +17,7 @@ public class BookingSummaryResponse {
     private String clientFullName;
     private BigDecimal agreedPrice;
     private String status;
+    private String urgency;
     private LocalDateTime scheduledAt;
     private LocalDateTime createdAt;
 }

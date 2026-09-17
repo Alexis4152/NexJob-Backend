@@ -16,6 +16,8 @@ public class BookingDetailResponse {
 
     private Long serviceId;
     private String serviceTitle;
+    private Long categoryId;
+    private String categoryName;
 
     private Long providerId;
     private String providerBusinessName;
@@ -33,6 +35,7 @@ public class BookingDetailResponse {
     private LocalDateTime scheduledAt;
     private String status;
     private String paymentMethod;
+    private String urgency;
     private String cancelledReason;
     private LocalDateTime createdAt;
 

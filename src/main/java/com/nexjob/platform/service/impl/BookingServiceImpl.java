@@ -22,6 +22,7 @@ import com.nexjob.platform.service.BookingService;
 import com.nexjob.platform.service.BookingSpecifications;
 import com.nexjob.platform.service.EmailService;
 import com.nexjob.platform.service.FileStorageService;
+import com.nexjob.platform.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -66,6 +67,7 @@ public class BookingServiceImpl implements BookingService {
     private final FileStorageService fileStorageService;
     private final PaymentProcessor paymentProcessor;
     private final EmailService emailService;
+    private final NotificationService notificationService;
     private final BookingMapper bookingMapper;
     private final ReviewMapper reviewMapper;
 
@@ -99,11 +101,17 @@ public class BookingServiceImpl implements BookingService {
                 .scheduledAt(request.getScheduledAt())
                 .status(BookingStatus.SOLICITADO)
                 .paymentMethod(request.getPaymentMethod())
+                .urgency(request.getUrgency())
                 .build();
         booking.setCreatedBy(client);
         booking = bookingRepository.save(booking);
 
         recordHistory(booking, null, BookingStatus.SOLICITADO, client, "Solicitud creada por el cliente");
+
+        notificationService.notify(service.getProvider().getUser(), booking, "BOOKING_CREATED",
+                "Nueva solicitud recibida",
+                client.getFirstName() + " " + client.getLastName() + " solicito \"" + service.getTitle() + "\" (folio " + booking.getFolio() + ")",
+                "/prestador/contrataciones/" + booking.getId());
 
         return buildDetail(booking);
     }
@@ -134,6 +142,12 @@ public class BookingServiceImpl implements BookingService {
         booking.setUpdatedBy(currentUser());
         booking = bookingRepository.save(booking);
         recordHistory(booking, previous, BookingStatus.CANCELADO, currentUser(), reason);
+
+        notificationService.notify(booking.getProvider().getUser(), booking, "BOOKING_CANCELLED",
+                "Solicitud cancelada por el cliente",
+                "El cliente cancelo la contratacion de \"" + booking.getService().getTitle() + "\" (folio " + booking.getFolio() + ")",
+                "/prestador/contrataciones/" + booking.getId());
+
         return buildDetail(booking);
     }
 
@@ -194,6 +208,10 @@ public class BookingServiceImpl implements BookingService {
         booking = bookingRepository.save(booking);
         recordHistory(booking, previous, BookingStatus.APROBADO, currentUser(), "Cliente valido el servicio y libero el pago");
         emailService.sendBookingStatusNotification(booking.getProvider().getUser().getEmail(), booking.getFolio(), "APROBADO");
+        notificationService.notify(booking.getProvider().getUser(), booking, "BOOKING_APPROVED",
+                "Pago liberado",
+                "El cliente aprobo el servicio y se libero el pago del folio " + booking.getFolio(),
+                "/prestador/contrataciones/" + booking.getId());
 
         return buildDetail(booking);
     }
@@ -226,6 +244,11 @@ public class BookingServiceImpl implements BookingService {
         provider.setAverageRating(newAverage);
         provider.setTotalReviews(totalReviews + 1);
         providerProfileRepository.save(provider);
+
+        notificationService.notify(provider.getUser(), booking, "BOOKING_REVIEWED",
+                "Nueva resena recibida",
+                booking.getClient().getFirstName() + " te dejo una resena de " + rating + " estrellas",
+                "/prestador/contrataciones/" + booking.getId());
 
         return reviewMapper.toResponse(review);
     }
@@ -274,8 +297,33 @@ public class BookingServiceImpl implements BookingService {
         booking = bookingRepository.save(booking);
         recordHistory(booking, previous, newStatus, currentUser(), note);
         emailService.sendBookingStatusNotification(booking.getClient().getEmail(), booking.getFolio(), newStatus.name());
+        notificationService.notify(booking.getClient(), booking, "BOOKING_" + newStatus.name(),
+                titleForStatus(newStatus), bodyForStatus(newStatus, booking), "/mis-contrataciones/" + booking.getId());
 
         return buildDetail(booking);
+    }
+
+    private String titleForStatus(BookingStatus status) {
+        return switch (status) {
+            case ACEPTADO -> "Tu solicitud fue aceptada";
+            case RECHAZADO -> "Tu solicitud fue rechazada";
+            case EN_PROCESO -> "Tu servicio esta en proceso";
+            case CONCLUIDO -> "El prestador concluyo el servicio";
+            case CANCELADO -> "Tu contratacion fue cancelada";
+            default -> "Actualizacion de tu contratacion";
+        };
+    }
+
+    private String bodyForStatus(BookingStatus status, Booking booking) {
+        String provider = booking.getProvider().getBusinessName();
+        return switch (status) {
+            case ACEPTADO -> provider + " acepto tu solicitud (folio " + booking.getFolio() + ")";
+            case RECHAZADO -> provider + " rechazo tu solicitud (folio " + booking.getFolio() + ")";
+            case EN_PROCESO -> provider + " comenzo a trabajar en tu servicio (folio " + booking.getFolio() + ")";
+            case CONCLUIDO -> provider + " marco como concluido tu servicio, valida el trabajo para liberar el pago (folio " + booking.getFolio() + ")";
+            case CANCELADO -> provider + " cancelo tu contratacion (folio " + booking.getFolio() + ")";
+            default -> "Folio " + booking.getFolio();
+        };
     }
 
     @Override

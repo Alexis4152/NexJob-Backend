@@ -6,6 +6,7 @@ import com.nexjob.platform.dto.response.ProviderSelfResponse;
 import com.nexjob.platform.dto.response.ProviderSummaryResponse;
 import com.nexjob.platform.dto.response.ReviewResponse;
 import com.nexjob.platform.dto.response.ServiceOfferingResponse;
+import com.nexjob.platform.entity.BookingStatusHistory;
 import com.nexjob.platform.entity.Category;
 import com.nexjob.platform.entity.ProviderProfile;
 import com.nexjob.platform.entity.Review;
@@ -18,6 +19,7 @@ import com.nexjob.platform.mapper.ProviderMapper;
 import com.nexjob.platform.mapper.ReviewMapper;
 import com.nexjob.platform.mapper.ServiceOfferingMapper;
 import com.nexjob.platform.repository.BookingRepository;
+import com.nexjob.platform.repository.BookingStatusHistoryRepository;
 import com.nexjob.platform.repository.CategoryRepository;
 import com.nexjob.platform.repository.ProviderProfileRepository;
 import com.nexjob.platform.repository.ReviewRepository;
@@ -41,6 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -52,12 +55,19 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class ProviderServiceImpl implements ProviderService {
 
+    // Umbrales del nivel "Profesional destacado" (punto 15 de la lista de mejoras del cliente).
+    private static final int DESTACADO_MIN_YEARS_EXPERIENCE = 3;
+    private static final int DESTACADO_MIN_REVIEWS = 5;
+    private static final int DESTACADO_MIN_COMPLETED_JOBS = 10;
+    private static final BigDecimal DESTACADO_MIN_RATING = BigDecimal.valueOf(4.5);
+
     private final ProviderProfileRepository providerProfileRepository;
     private final CategoryRepository categoryRepository;
     private final ServiceOfferingRepository serviceOfferingRepository;
     private final ServiceImageRepository serviceImageRepository;
     private final ReviewRepository reviewRepository;
     private final BookingRepository bookingRepository;
+    private final BookingStatusHistoryRepository bookingStatusHistoryRepository;
     private final FileStorageService fileStorageService;
     private final PostalCodeLookupService postalCodeLookupService;
     private final ProviderMapper providerMapper;
@@ -80,7 +90,8 @@ public class ProviderServiceImpl implements ProviderService {
 
         Pageable finalPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sortFor(sort));
         Page<ProviderProfile> page = providerProfileRepository.findAll(spec, finalPageable);
-        return page.map(p -> providerMapper.toSummary(p, fromPriceOf(p), hasPhotosOf(p), null));
+        return page.map(p -> providerMapper.toSummary(p, fromPriceOf(p), hasPhotosOf(p), null,
+                averageResponseMinutesOf(p.getId()), trustTierOf(p)));
     }
 
     /**
@@ -123,7 +134,8 @@ public class ProviderServiceImpl implements ProviderService {
         int to = Math.min(from + pageable.getPageSize(), total);
 
         List<ProviderSummaryResponse> content = ranked.subList(from, to).stream()
-                .map(r -> providerMapper.toSummary(r.provider(), fromPriceOf(r.provider()), hasPhotosOf(r.provider()), r.distanceKm()))
+                .map(r -> providerMapper.toSummary(r.provider(), fromPriceOf(r.provider()), hasPhotosOf(r.provider()), r.distanceKm(),
+                        averageResponseMinutesOf(r.provider().getId()), trustTierOf(r.provider())))
                 .toList();
 
         return new PageImpl<>(content, pageable, total);
@@ -155,6 +167,48 @@ public class ProviderServiceImpl implements ProviderService {
         return serviceImageRepository.existsByService_Provider_IdAndService_IsActiveTrue(p.getId());
     }
 
+    /**
+     * Tiempo de respuesta real, promediado sobre las ultimas 5 solicitudes que el prestador
+     * realmente acepto o rechazo (nunca las auto-canceladas por el cron de expiracion). Null si
+     * todavia no tiene ninguna respuesta registrada, para no inventar un dato que no existe.
+     */
+    private Long averageResponseMinutesOf(Long providerId) {
+        List<BookingStatusHistory> recent = bookingStatusHistoryRepository
+                .findRecentResponseTransitions(providerId, PageRequest.of(0, 5));
+        if (recent.isEmpty()) {
+            return null;
+        }
+        long totalMinutes = recent.stream()
+                .mapToLong(h -> Duration.between(h.getBooking().getCreatedAt(), h.getChangedAt()).toMinutes())
+                .sum();
+        return totalMinutes / recent.size();
+    }
+
+    private int completedJobsOf(Long providerId) {
+        return (int) bookingRepository.countByProvider_IdAndStatus(providerId, BookingStatus.APROBADO);
+    }
+
+    /**
+     * Nivel de confianza (punto 15): BASICO (correo+telefono), VERIFICADO (+ identidad) y
+     * DESTACADO (+ experiencia, resenas, trabajos concluidos y buena calificacion). Acumulativo:
+     * cada nivel exige todo lo del anterior. Null si ni siquiera cumple BASICO. Todo calculado
+     * con datos reales ya existentes, nunca capturado a mano por el prestador.
+     */
+    private String trustTierOf(ProviderProfile p) {
+        boolean basico = Boolean.TRUE.equals(p.getEmailVerified()) && Boolean.TRUE.equals(p.getPhoneVerified());
+        if (!basico) {
+            return null;
+        }
+        if (!Boolean.TRUE.equals(p.getIsVerified())) {
+            return "BASICO";
+        }
+        boolean destacado = p.getYearsExperience() != null && p.getYearsExperience() >= DESTACADO_MIN_YEARS_EXPERIENCE
+                && p.getTotalReviews() != null && p.getTotalReviews() >= DESTACADO_MIN_REVIEWS
+                && completedJobsOf(p.getId()) >= DESTACADO_MIN_COMPLETED_JOBS
+                && p.getAverageRating() != null && p.getAverageRating().compareTo(DESTACADO_MIN_RATING) >= 0;
+        return destacado ? "DESTACADO" : "VERIFICADO";
+    }
+
     @Override
     @Transactional(readOnly = true)
     public ProviderDetailResponse getPublicDetail(Long providerId) {
@@ -171,7 +225,9 @@ public class ProviderServiceImpl implements ProviderService {
                 .map(reviewMapper::toResponse)
                 .getContent();
 
-        return providerMapper.toDetail(provider, services, reviews);
+        int completedJobs = completedJobsOf(providerId);
+
+        return providerMapper.toDetail(provider, services, reviews, completedJobs, averageResponseMinutesOf(providerId), trustTierOf(provider));
     }
 
     @Override
@@ -246,6 +302,36 @@ public class ProviderServiceImpl implements ProviderService {
         ProviderProfile profile = providerProfileRepository.findById(providerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Prestador no encontrado: " + providerId));
         profile.setIsVerified(verified);
+        profile.setUpdatedBy(SecurityUtils.getCurrentUserOrNull());
+        return providerMapper.toSelf(providerProfileRepository.save(profile));
+    }
+
+    @Override
+    @Transactional
+    public ProviderSelfResponse adminSetEmailVerified(Long providerId, boolean verified) {
+        ProviderProfile profile = providerProfileRepository.findById(providerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Prestador no encontrado: " + providerId));
+        profile.setEmailVerified(verified);
+        profile.setUpdatedBy(SecurityUtils.getCurrentUserOrNull());
+        return providerMapper.toSelf(providerProfileRepository.save(profile));
+    }
+
+    @Override
+    @Transactional
+    public ProviderSelfResponse adminSetPhoneVerified(Long providerId, boolean verified) {
+        ProviderProfile profile = providerProfileRepository.findById(providerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Prestador no encontrado: " + providerId));
+        profile.setPhoneVerified(verified);
+        profile.setUpdatedBy(SecurityUtils.getCurrentUserOrNull());
+        return providerMapper.toSelf(providerProfileRepository.save(profile));
+    }
+
+    @Override
+    @Transactional
+    public ProviderSelfResponse adminSetProfileComplete(Long providerId, boolean complete) {
+        ProviderProfile profile = providerProfileRepository.findById(providerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Prestador no encontrado: " + providerId));
+        profile.setProfileComplete(complete);
         profile.setUpdatedBy(SecurityUtils.getCurrentUserOrNull());
         return providerMapper.toSelf(providerProfileRepository.save(profile));
     }

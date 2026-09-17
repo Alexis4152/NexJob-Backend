@@ -25,4 +25,8 @@ public class ProviderSummaryResponse {
     private Boolean hasPhotos;
     /** Distancia aproximada en km (a nivel ciudad); null si no se mando ubicacion del cliente. */
     private Double distanceKm;
+    /** Promedio real (ultimas 5 solicitudes aceptadas/rechazadas) en minutos; null si aun no tiene historial. */
+    private Long averageResponseMinutes;
+    /** "BASICO" | "VERIFICADO" | "DESTACADO" | null (ni siquiera cumple el nivel basico). */
+    private String trustTier;
 }

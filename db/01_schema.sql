@@ -76,6 +76,9 @@ CREATE TABLE IF NOT EXISTS provider_profiles (
     average_rating      NUMERIC(3,2) NOT NULL DEFAULT 0,
     total_reviews       INTEGER NOT NULL DEFAULT 0,
     is_verified         BOOLEAN NOT NULL DEFAULT FALSE,
+    email_verified      BOOLEAN NOT NULL DEFAULT FALSE,
+    phone_verified      BOOLEAN NOT NULL DEFAULT FALSE,
+    profile_complete    BOOLEAN NOT NULL DEFAULT FALSE,
     is_active           BOOLEAN NOT NULL DEFAULT TRUE,
     created_at          TIMESTAMP NOT NULL DEFAULT NOW(),
     created_by_user_id  BIGINT REFERENCES users(id),
@@ -143,6 +146,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     status                  VARCHAR(20) NOT NULL DEFAULT 'SOLICITADO'
                               CHECK (status IN ('SOLICITADO','ACEPTADO','EN_PROCESO','CONCLUIDO','APROBADO','RECHAZADO','CANCELADO')),
     payment_method          VARCHAR(20) NOT NULL CHECK (payment_method IN ('EFECTIVO','TARJETA','TRANSFERENCIA')),
+    urgency                 VARCHAR(20) NOT NULL DEFAULT 'PROGRAMADO' CHECK (urgency IN ('URGENTE','PRONTO','PROGRAMADO')),
     cancelled_reason        VARCHAR(500),
     is_active               BOOLEAN NOT NULL DEFAULT TRUE,
     created_at              TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -204,6 +208,20 @@ CREATE TABLE IF NOT EXISTS reviews (
     created_at              TIMESTAMP NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_reviews_provider_id ON reviews(provider_profile_id);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     BIGINT NOT NULL REFERENCES users(id),
+    booking_id  BIGINT REFERENCES bookings(id),
+    type        VARCHAR(40) NOT NULL,
+    title       VARCHAR(150) NOT NULL,
+    body        VARCHAR(500) NOT NULL,
+    link        VARCHAR(300),
+    is_read     BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id) WHERE is_read = FALSE;
 
 -- ============ MODULO DE AYUDA ============
 

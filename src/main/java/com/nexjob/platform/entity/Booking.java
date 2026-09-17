@@ -1,6 +1,7 @@
 package com.nexjob.platform.entity;
 
 import com.nexjob.platform.enums.BookingStatus;
+import com.nexjob.platform.enums.BookingUrgency;
 import com.nexjob.platform.enums.PaymentMethod;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -61,6 +62,12 @@ public class Booking extends AuditableEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_method", nullable = false, length = 20)
     private PaymentMethod paymentMethod;
+
+    // Que tan pronto necesita el cliente el servicio; util para que el prestador priorice
+    // sus solicitudes (ver BookingRequest / tablero del prestador).
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private BookingUrgency urgency;
 
     @Column(name = "cancelled_reason", length = 500)
     private String cancelledReason;

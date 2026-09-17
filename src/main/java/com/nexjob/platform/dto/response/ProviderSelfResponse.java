@@ -21,5 +21,8 @@ public class ProviderSelfResponse {
     private BigDecimal averageRating;
     private Integer totalReviews;
     private Boolean isVerified;
+    private Boolean emailVerified;
+    private Boolean phoneVerified;
+    private Boolean profileComplete;
     private List<CategoryResponse> categories;
 }
