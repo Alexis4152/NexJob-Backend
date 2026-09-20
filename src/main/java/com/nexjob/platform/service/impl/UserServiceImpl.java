@@ -8,12 +8,14 @@ import com.nexjob.platform.exception.ResourceNotFoundException;
 import com.nexjob.platform.mapper.UserMapper;
 import com.nexjob.platform.repository.UserRepository;
 import com.nexjob.platform.security.SecurityUtils;
+import com.nexjob.platform.service.FileStorageService;
 import com.nexjob.platform.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +23,7 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final FileStorageService fileStorageService;
 
     @Override
     @Transactional
@@ -29,6 +32,17 @@ public class UserServiceImpl implements UserService {
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
         user.setPhone(request.getPhone());
+        user.setCity(request.getCity());
+        user.setPostalCode(request.getPostalCode());
+        user.setAge(request.getAge());
+        return userMapper.toResponse(userRepository.save(user));
+    }
+
+    @Override
+    @Transactional
+    public UserResponse updateMyPhoto(MultipartFile file) {
+        User user = currentUser();
+        user.setProfileImageUrl(fileStorageService.store(file, "users"));
         return userMapper.toResponse(userRepository.save(user));
     }
 

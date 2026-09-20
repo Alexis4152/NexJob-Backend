@@ -43,6 +43,19 @@ public class User extends AuditableEntity implements UserDetails {
     @Column(length = 30)
     private String phone;
 
+    // Ciudad y codigo postal reutilizados al agendar servicios o pedir cotizaciones, para no
+    // pedirselos al cliente cada vez. Edad y foto son puramente informativos, ambos opcionales.
+    @Column(length = 100)
+    private String city;
+
+    @Column(name = "postal_code", length = 5)
+    private String postalCode;
+
+    private Integer age;
+
+    @Column(name = "profile_image_url")
+    private String profileImageUrl;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;

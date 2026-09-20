@@ -12,6 +12,7 @@ import java.util.Optional;
 
 public interface ServiceOfferingRepository extends JpaRepository<ServiceOffering, Long> {
     List<ServiceOffering> findByProvider_IdAndIsActiveTrue(Long providerId);
+    List<ServiceOffering> findByProvider_IdAndCategory_IdAndIsActiveTrue(Long providerId, Long categoryId);
     Page<ServiceOffering> findByProvider_Id(Long providerId, Pageable pageable);
     Optional<ServiceOffering> findByIdAndProvider_Id(Long id, Long providerId);
     Optional<ServiceOffering> findByIdAndIsActiveTrue(Long id);

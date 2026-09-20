@@ -336,6 +336,20 @@ public class ProviderServiceImpl implements ProviderService {
         return providerMapper.toSelf(providerProfileRepository.save(profile));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Long computeAverageResponseMinutes(Long providerId) {
+        return averageResponseMinutesOf(providerId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public String computeTrustTier(Long providerId) {
+        ProviderProfile provider = providerProfileRepository.findById(providerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Prestador no encontrado: " + providerId));
+        return trustTierOf(provider);
+    }
+
     private ProviderProfile myProfile() {
         User user = SecurityUtils.getCurrentUserOrNull();
         if (user == null) {

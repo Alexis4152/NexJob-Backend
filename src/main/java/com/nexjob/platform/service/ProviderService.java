@@ -43,4 +43,9 @@ public interface ProviderService {
     ProviderSelfResponse adminSetPhoneVerified(Long providerId, boolean verified);
 
     ProviderSelfResponse adminSetProfileComplete(Long providerId, boolean complete);
+
+    /** Reutilizado por QuoteRequestService para no duplicar los umbrales de confianza/respuesta. */
+    Long computeAverageResponseMinutes(Long providerId);
+
+    String computeTrustTier(Long providerId);
 }

@@ -1,6 +1,5 @@
 package com.nexjob.platform.dto.request;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Pattern;
@@ -17,7 +16,10 @@ import java.util.List;
 public class RegisterProviderRequest {
 
     @NotBlank(message = "El correo es obligatorio")
-    @Email(message = "El correo no es valido")
+    @Size(max = 60, message = "El correo no puede tener mas de 60 caracteres")
+    @Pattern(regexp = "^(?=.{1,64}@)[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*@"
+            + "[^-][A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)*(\\.[A-Za-z]{2,})$",
+            message = "El formato del campo correo electronico es erroneo. Ejemplo: correo_electronico@mail.com.mx")
     private String email;
 
     @NotBlank(message = "La contrasena es obligatoria")
@@ -30,6 +32,8 @@ public class RegisterProviderRequest {
     @NotBlank(message = "El apellido es obligatorio")
     private String lastName;
 
+    // Opcional: si se captura, debe ser un numero de 10 digitos ("^$" acepta vacio).
+    @Pattern(regexp = "^$|\\d{10}", message = "El telefono debe tener 10 digitos numericos")
     private String phone;
 
     @NotBlank(message = "El nombre del negocio u oficio es obligatorio")
@@ -39,7 +43,7 @@ public class RegisterProviderRequest {
 
     private Integer yearsExperience;
 
-    @NotBlank(message = "La ciudad de cobertura es obligatoria")
+    // Opcional al registrarse: se puede completar despues desde "Mi perfil".
     private String city;
 
     // Opcional: si se captura, se usa para ubicar al prestador con mas precision que la

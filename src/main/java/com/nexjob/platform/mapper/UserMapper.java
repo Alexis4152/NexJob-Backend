@@ -22,9 +22,14 @@ public class UserMapper {
                 .firstName(u.getFirstName())
                 .lastName(u.getLastName())
                 .phone(u.getPhone())
+                .city(u.getCity())
+                .postalCode(u.getPostalCode())
+                .age(u.getAge())
+                .profileImageUrl(u.getProfileImageUrl())
                 .role(u.getRole().getName().name())
                 .isActive(u.getIsActive())
                 .providerProfileId(providerProfileId)
+                .createdAt(u.getCreatedAt())
                 .build();
     }
 }

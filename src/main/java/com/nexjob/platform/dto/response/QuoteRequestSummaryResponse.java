@@ -7,19 +7,15 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/** Fila de la lista "Mis cotizaciones" del cliente. */
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
-public class UserResponse {
+public class QuoteRequestSummaryResponse {
     private Long id;
-    private String email;
-    private String firstName;
-    private String lastName;
-    private String phone;
+    private String categoryName;
+    private String description;
     private String city;
-    private String postalCode;
-    private Integer age;
-    private String profileImageUrl;
-    private String role;
-    private Boolean isActive;
-    private Long providerProfileId;
+    private String status;
+    private int recipientsCount;
+    private int quotesCount;
     private LocalDateTime createdAt;
 }
