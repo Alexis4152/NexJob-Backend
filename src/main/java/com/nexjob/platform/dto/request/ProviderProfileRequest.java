@@ -1,5 +1,7 @@
 package com.nexjob.platform.dto.request;
 
+import com.nexjob.platform.enums.ServiceDays;
+import com.nexjob.platform.enums.ServiceHours;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Pattern;
@@ -27,4 +29,8 @@ public class ProviderProfileRequest {
 
     @NotEmpty(message = "Selecciona al menos una categoria de servicio")
     private List<Long> categoryIds;
+
+    private ServiceDays serviceDays;
+
+    private ServiceHours serviceHours;
 }

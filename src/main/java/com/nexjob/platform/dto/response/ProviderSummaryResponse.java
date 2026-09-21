@@ -1,5 +1,7 @@
 package com.nexjob.platform.dto.response;
 
+import com.nexjob.platform.enums.ServiceDays;
+import com.nexjob.platform.enums.ServiceHours;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,6 +19,8 @@ public class ProviderSummaryResponse {
     private Integer yearsExperience;
     private String city;
     private String profileImageUrl;
+    private ServiceDays serviceDays;
+    private ServiceHours serviceHours;
     private BigDecimal averageRating;
     private Integer totalReviews;
     private Boolean isVerified;

@@ -269,6 +269,8 @@ public class ProviderServiceImpl implements ProviderService {
         profile.setYearsExperience(request.getYearsExperience());
         profile.setCity(request.getCity());
         profile.setPostalCode(request.getPostalCode());
+        profile.setServiceDays(request.getServiceDays());
+        profile.setServiceHours(request.getServiceHours());
         // Solo se sobreescribe lat/lng si el CP existe en el catalogo: si no se encuentra
         // (o se dejo en blanco) se conserva la coordenada previa en vez de borrarla.
         postalCodeLookupService.lookup(request.getPostalCode()).ifPresent(coords -> {

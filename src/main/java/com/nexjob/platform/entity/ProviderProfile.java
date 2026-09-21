@@ -1,5 +1,7 @@
 package com.nexjob.platform.entity;
 
+import com.nexjob.platform.enums.ServiceDays;
+import com.nexjob.platform.enums.ServiceHours;
 import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
@@ -57,6 +59,15 @@ public class ProviderProfile extends AuditableEntity {
 
     @Column(name = "profile_image_url", length = 500)
     private String profileImageUrl;
+
+    // Declarados por el propio prestador (informativo, no calculado de reservas reales).
+    @Enumerated(EnumType.STRING)
+    @Column(name = "service_days", length = 20)
+    private ServiceDays serviceDays;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "service_hours", length = 20)
+    private ServiceHours serviceHours;
 
     @Column(name = "average_rating", precision = 3, scale = 2)
     @Builder.Default

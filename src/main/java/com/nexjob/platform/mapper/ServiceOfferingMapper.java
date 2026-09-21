@@ -16,6 +16,8 @@ public class ServiceOfferingMapper {
                 .id(s.getId())
                 .providerId(s.getProvider().getId())
                 .providerBusinessName(s.getProvider().getBusinessName())
+                .providerServiceDays(s.getProvider().getServiceDays())
+                .providerServiceHours(s.getProvider().getServiceHours())
                 .categoryId(s.getCategory().getId())
                 .categoryName(s.getCategory().getName())
                 .title(s.getTitle())

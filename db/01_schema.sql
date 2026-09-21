@@ -77,6 +77,8 @@ CREATE TABLE IF NOT EXISTS provider_profiles (
     latitude            NUMERIC(9,6),
     longitude           NUMERIC(9,6),
     profile_image_url   VARCHAR(500),
+    service_days        VARCHAR(20) CHECK (service_days IN ('LUN_VIE','LUN_SAB','LUN_DOM','SAB_DOM')),
+    service_hours       VARCHAR(20) CHECK (service_hours IN ('H08_17','H09_18','H08_20','H24')),
     average_rating      NUMERIC(3,2) NOT NULL DEFAULT 0,
     total_reviews       INTEGER NOT NULL DEFAULT 0,
     is_verified         BOOLEAN NOT NULL DEFAULT FALSE,
