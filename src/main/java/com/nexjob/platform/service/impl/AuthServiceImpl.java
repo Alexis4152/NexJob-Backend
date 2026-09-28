@@ -158,6 +158,20 @@ public class AuthServiceImpl implements AuthService {
         return LoginResponse.builder().token(token).user(userMapper.toResponse(user)).build();
     }
 
+    /**
+     * Emite un token nuevo (misma duracion de siempre) para el usuario ya autenticado por el
+     * token actual, sin pedir contrasena. Solo funciona mientras el token vigente siga siendo
+     * valido (ver /api/auth/refresh en SecurityConfig, que exige sesion activa) -- si ya
+     * expiro, JwtAuthFilter nunca autentico la solicitud y este endpoint responde 401 igual
+     * que cualquier otro protegido, obligando a iniciar sesion de nuevo con la contrasena.
+     */
+    @Override
+    public LoginResponse refresh() {
+        User user = getCurrentUser();
+        String token = jwtTokenProvider.generateToken(user);
+        return LoginResponse.builder().token(token).user(userMapper.toResponse(user)).build();
+    }
+
     @Override
     public User getCurrentUser() {
         User user = SecurityUtils.getCurrentUserOrNull();

@@ -23,6 +23,14 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
 
+    /**
+     * Se marca en el request cuando el JWT si autentico al usuario, para que el
+     * AuthenticationEntryPoint de SecurityConfig pueda distinguir "no hay sesion" (401) de
+     * "hay sesion pero el rol no alcanza" (403): Spring Security limpia el SecurityContext
+     * antes de invocar el entry point, asi que ese punto no puede leerlo directamente de ahi.
+     */
+    public static final String AUTHENTICATED_ATTRIBUTE = "nexjob.jwtAuthenticated";
+
     private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService userDetailsService;
 
@@ -41,6 +49,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
             auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(auth);
+            request.setAttribute(AUTHENTICATED_ATTRIBUTE, Boolean.TRUE);
         }
 
         chain.doFilter(request, response);

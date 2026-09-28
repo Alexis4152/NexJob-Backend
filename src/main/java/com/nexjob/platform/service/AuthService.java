@@ -13,6 +13,7 @@ public interface AuthService {
     LoginResponse register(RegisterRequest request);
     LoginResponse registerProvider(RegisterProviderRequest request);
     LoginResponse login(LoginRequest request);
+    LoginResponse refresh();
     User getCurrentUser();
     void forgotPassword(ForgotPasswordRequest request, String clientIp);
     void validateResetCode(ValidateResetCodeRequest request, String clientIp);

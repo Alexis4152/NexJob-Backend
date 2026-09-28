@@ -4,12 +4,16 @@ import com.nexjob.platform.dto.response.ServiceImageResponse;
 import com.nexjob.platform.dto.response.ServiceOfferingResponse;
 import com.nexjob.platform.entity.ServiceImage;
 import com.nexjob.platform.entity.ServiceOffering;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 @Component
+@RequiredArgsConstructor
 public class ServiceOfferingMapper {
+
+    private final CategoryMapper categoryMapper;
 
     public ServiceOfferingResponse toResponse(ServiceOffering s, List<ServiceImage> images) {
         return ServiceOfferingResponse.builder()
@@ -20,6 +24,8 @@ public class ServiceOfferingMapper {
                 .providerServiceHours(s.getProvider().getServiceHours())
                 .categoryId(s.getCategory().getId())
                 .categoryName(s.getCategory().getName())
+                .categorySlug(s.getCategory().getSlug())
+                .categoryIntakeFields(categoryMapper.toIntakeFieldResponses(s.getCategory().getIntakeFields()))
                 .title(s.getTitle())
                 .description(s.getDescription())
                 .price(s.getPrice())

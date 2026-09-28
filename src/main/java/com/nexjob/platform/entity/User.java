@@ -2,6 +2,7 @@ package com.nexjob.platform.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -55,6 +56,12 @@ public class User extends AuditableEntity implements UserDetails {
 
     @Column(name = "profile_image_url")
     private String profileImageUrl;
+
+    // Verificado por el propio usuario desde su perfil (ver EmailVerificationCode), nunca al
+    // registrarse: no es un bloqueo, solo una senal de confianza opcional.
+    @Column(name = "email_verified", nullable = false)
+    @Builder.Default
+    private Boolean emailVerified = false;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "role_id", nullable = false)

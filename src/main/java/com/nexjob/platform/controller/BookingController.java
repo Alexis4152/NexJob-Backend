@@ -2,6 +2,7 @@ package com.nexjob.platform.controller;
 
 import com.nexjob.platform.dto.ApiResponse;
 import com.nexjob.platform.dto.PageResponse;
+import com.nexjob.platform.dto.request.AcceptQuoteRequest;
 import com.nexjob.platform.dto.request.BookingCancelRequest;
 import com.nexjob.platform.dto.request.BookingRequest;
 import com.nexjob.platform.dto.request.ReviewRequest;
@@ -44,6 +45,22 @@ public class BookingController {
     @GetMapping("/{id}")
     public ApiResponse<BookingDetailResponse> detail(@PathVariable Long id) {
         return ApiResponse.ok(bookingService.getMineDetail(id));
+    }
+
+    @PostMapping(value = "/{id}/reference-image", consumes = "multipart/form-data")
+    public ApiResponse<BookingDetailResponse> uploadReferenceImage(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
+        return ApiResponse.ok(bookingService.uploadReferenceImage(id, file), "Foto de referencia agregada");
+    }
+
+    @PostMapping("/{id}/quote/accept")
+    public ApiResponse<BookingDetailResponse> acceptQuote(@PathVariable Long id, @Valid @RequestBody AcceptQuoteRequest request) {
+        return ApiResponse.ok(bookingService.acceptQuote(id, request), "Cotizacion aceptada");
+    }
+
+    @PostMapping("/{id}/quote/reject")
+    public ApiResponse<BookingDetailResponse> rejectQuote(@PathVariable Long id, @RequestBody(required = false) BookingCancelRequest request) {
+        String reason = request == null ? null : request.getReason();
+        return ApiResponse.ok(bookingService.rejectQuote(id, reason), "Cotizacion rechazada");
     }
 
     @PatchMapping("/{id}/cancel")

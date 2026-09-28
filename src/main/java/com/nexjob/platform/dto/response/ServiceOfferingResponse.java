@@ -19,6 +19,8 @@ public class ServiceOfferingResponse {
     private ServiceHours providerServiceHours;
     private Long categoryId;
     private String categoryName;
+    private String categorySlug;
+    private List<CategoryIntakeFieldResponse> categoryIntakeFields;
     private String title;
     private String description;
     private BigDecimal price;

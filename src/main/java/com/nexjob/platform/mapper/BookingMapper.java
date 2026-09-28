@@ -3,6 +3,7 @@ package com.nexjob.platform.mapper;
 import com.nexjob.platform.dto.response.*;
 import com.nexjob.platform.entity.Booking;
 import com.nexjob.platform.entity.BookingEvidence;
+import com.nexjob.platform.entity.BookingQuoteItem;
 import com.nexjob.platform.entity.BookingStatusHistory;
 import com.nexjob.platform.entity.Payment;
 import com.nexjob.platform.entity.Review;
@@ -25,6 +26,8 @@ public class BookingMapper {
                 .providerBusinessName(b.getProvider().getBusinessName())
                 .clientFullName(b.getClient().getFirstName() + " " + b.getClient().getLastName())
                 .agreedPrice(b.getAgreedPrice())
+                .priceType(b.getService().getPriceType().name())
+                .quoteTotal(b.getQuoteTotal())
                 .status(b.getStatus().name())
                 .urgency(b.getUrgency().name())
                 .scheduledAt(b.getScheduledAt())
@@ -52,6 +55,13 @@ public class BookingMapper {
                 .description(b.getDescription())
                 .addressLine(b.getAddressLine())
                 .city(b.getCity())
+                .referenceImageUrl(b.getReferenceImageUrl())
+                .priceType(b.getService().getPriceType().name())
+                .quoteItems(b.getQuoteItems().stream().map(this::toQuoteItem).toList())
+                .quoteNote(b.getQuoteNote())
+                .quoteTotal(b.getQuoteTotal())
+                .quoteSentAt(b.getQuoteSentAt())
+                .estimatedDeliveryDate(b.getEstimatedDeliveryDate())
                 .scheduledAt(b.getScheduledAt())
                 .status(b.getStatus().name())
                 .paymentMethod(b.getPaymentMethod().name())
@@ -62,6 +72,13 @@ public class BookingMapper {
                 .history(history.stream().map(this::toHistory).toList())
                 .payment(payment == null ? null : toPayment(payment))
                 .review(review == null ? null : reviewMapper.toResponse(review))
+                .build();
+    }
+
+    private BookingQuoteItemResponse toQuoteItem(BookingQuoteItem i) {
+        return BookingQuoteItemResponse.builder()
+                .concept(i.getConcept()).quantity(i.getQuantity()).unit(i.getUnit()).unitCost(i.getUnitCost())
+                .subtotal(i.getQuantity().multiply(i.getUnitCost()))
                 .build();
     }
 

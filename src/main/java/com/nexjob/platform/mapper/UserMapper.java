@@ -26,6 +26,7 @@ public class UserMapper {
                 .postalCode(u.getPostalCode())
                 .age(u.getAge())
                 .profileImageUrl(u.getProfileImageUrl())
+                .emailVerified(u.getEmailVerified())
                 .role(u.getRole().getName().name())
                 .isActive(u.getIsActive())
                 .providerProfileId(providerProfileId)

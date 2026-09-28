@@ -18,6 +18,7 @@ public class UserResponse {
     private String postalCode;
     private Integer age;
     private String profileImageUrl;
+    private Boolean emailVerified;
     private String role;
     private Boolean isActive;
     private Long providerProfileId;

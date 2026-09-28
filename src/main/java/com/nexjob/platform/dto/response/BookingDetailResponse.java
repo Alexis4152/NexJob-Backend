@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -32,6 +33,13 @@ public class BookingDetailResponse {
     private String description;
     private String addressLine;
     private String city;
+    private String referenceImageUrl;
+    private String priceType;
+    private List<BookingQuoteItemResponse> quoteItems;
+    private String quoteNote;
+    private BigDecimal quoteTotal;
+    private LocalDateTime quoteSentAt;
+    private LocalDate estimatedDeliveryDate;
     private LocalDateTime scheduledAt;
     private String status;
     private String paymentMethod;

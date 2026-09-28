@@ -44,6 +44,11 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok(authService.login(request)));
     }
 
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<LoginResponse>> refresh() {
+        return ResponseEntity.ok(ApiResponse.ok(authService.refresh(), "Sesion renovada"));
+    }
+
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<?>> me() {
         return ResponseEntity.ok(ApiResponse.ok(userMapper.toResponse(authService.getCurrentUser())));

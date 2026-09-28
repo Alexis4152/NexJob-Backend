@@ -49,6 +49,14 @@ public class EmailServiceImpl implements EmailService {
                         + "Si tu no solicitaste esto, puedes ignorar este correo.");
     }
 
+    @Override
+    public void sendEmailVerificationCode(String toEmail, String code) {
+        send(toEmail, "Tu codigo de verificacion de correo - NexJob",
+                "Ingresa este codigo en NexJob para verificar tu correo electronico (valido por tiempo limitado):\n\n"
+                        + code + "\n\n"
+                        + "Si tu no solicitaste esto, puedes ignorar este correo.");
+    }
+
     private void send(String toEmail, String subject, String body) {
         EmailConfig config = emailConfigRepository.findAll().stream().findFirst().orElse(null);
         if (config == null || !Boolean.TRUE.equals(config.getEnabled())) {

@@ -1,5 +1,7 @@
 package com.nexjob.platform.service;
 
+import com.nexjob.platform.dto.request.AcceptQuoteRequest;
+import com.nexjob.platform.dto.request.BookingQuoteRequest;
 import com.nexjob.platform.dto.request.BookingRequest;
 import com.nexjob.platform.dto.response.BookingDetailResponse;
 import com.nexjob.platform.dto.response.BookingSummaryResponse;
@@ -19,6 +21,9 @@ public interface BookingService {
     BookingDetailResponse create(BookingRequest request);
     Page<BookingSummaryResponse> getMine(Pageable pageable);
     BookingDetailResponse getMineDetail(Long id);
+    BookingDetailResponse uploadReferenceImage(Long id, MultipartFile file);
+    BookingDetailResponse acceptQuote(Long id, AcceptQuoteRequest request);
+    BookingDetailResponse rejectQuote(Long id, String reason);
     BookingDetailResponse cancel(Long id, String reason);
     BookingDetailResponse approveAndReleasePayment(Long id, String cardNumber, MultipartFile proofFile);
     ReviewResponse addReview(Long id, Integer rating, String comment);
@@ -28,6 +33,7 @@ public interface BookingService {
     List<BookingSummaryResponse> getProviderCalendar(LocalDateTime from, LocalDateTime to);
     BookingDetailResponse getProviderDetail(Long id);
     BookingDetailResponse updateStatus(Long id, BookingStatus newStatus, String note);
+    BookingDetailResponse submitQuote(Long id, BookingQuoteRequest request);
     BookingDetailResponse addEvidence(Long id, MultipartFile file, String description);
     ProviderDashboardResponse getProviderDashboard();
 

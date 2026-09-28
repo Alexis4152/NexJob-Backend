@@ -1,5 +1,7 @@
 package com.nexjob.platform.service.impl;
 
+import com.nexjob.platform.dto.request.AcceptQuoteRequest;
+import com.nexjob.platform.dto.request.BookingQuoteRequest;
 import com.nexjob.platform.dto.request.BookingRequest;
 import com.nexjob.platform.dto.response.BookingDetailResponse;
 import com.nexjob.platform.dto.response.BookingSummaryResponse;
@@ -7,8 +9,10 @@ import com.nexjob.platform.dto.response.ProviderDashboardResponse;
 import com.nexjob.platform.dto.response.ReviewResponse;
 import com.nexjob.platform.entity.*;
 import com.nexjob.platform.enums.BookingStatus;
+import com.nexjob.platform.enums.DeliveryMethod;
 import com.nexjob.platform.enums.PaymentMethod;
 import com.nexjob.platform.enums.PaymentStatus;
+import com.nexjob.platform.enums.PriceType;
 import com.nexjob.platform.exception.BusinessException;
 import com.nexjob.platform.exception.PaymentException;
 import com.nexjob.platform.exception.ResourceNotFoundException;
@@ -32,6 +36,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +52,7 @@ public class BookingServiceImpl implements BookingService {
     // implica liberar el pago, no es un simple cambio de estado administrativo.
     private static final Map<BookingStatus, Set<BookingStatus>> PROVIDER_TRANSITIONS = Map.of(
             BookingStatus.SOLICITADO, Set.of(BookingStatus.ACEPTADO, BookingStatus.RECHAZADO),
+            BookingStatus.COTIZACION_ACEPTADA, Set.of(BookingStatus.ACEPTADO, BookingStatus.CANCELADO),
             BookingStatus.ACEPTADO, Set.of(BookingStatus.EN_PROCESO, BookingStatus.CANCELADO),
             BookingStatus.EN_PROCESO, Set.of(BookingStatus.CONCLUIDO, BookingStatus.CANCELADO),
             BookingStatus.CONCLUIDO, Set.of(),
@@ -55,7 +61,8 @@ public class BookingServiceImpl implements BookingService {
             BookingStatus.CANCELADO, Set.of()
     );
 
-    private static final Set<BookingStatus> CLIENT_CANCELABLE = Set.of(BookingStatus.SOLICITADO, BookingStatus.ACEPTADO);
+    private static final Set<BookingStatus> CLIENT_CANCELABLE = Set.of(
+            BookingStatus.SOLICITADO, BookingStatus.COTIZADO, BookingStatus.COTIZACION_ACEPTADA, BookingStatus.ACEPTADO);
 
     private final BookingRepository bookingRepository;
     private final ServiceOfferingRepository serviceOfferingRepository;
@@ -84,9 +91,27 @@ public class BookingServiceImpl implements BookingService {
             throw new BusinessException("No puedes contratar tu propio servicio");
         }
 
-        if (bookingRepository.existsByProvider_IdAndScheduledAtAndStatusNotIn(
-                service.getProvider().getId(), request.getScheduledAt(), BookingStatus.SLOT_RELEASED)) {
-            throw new BusinessException("El prestador ya tiene una visita agendada en esa fecha y hora. Elige otro horario.");
+        // Direccion/fecha de visita solo aplican a servicios de precio fijo o por hora: en un
+        // servicio "a cotizar" el prestador normalmente fabrica el mueble en su taller y solo
+        // visita al cliente para entregar/instalar una vez aceptada la cotizacion, asi que no
+        // existe todavia una visita que agendar.
+        if (service.getPriceType() != PriceType.COTIZACION) {
+            if (request.getAddressLine() == null || request.getAddressLine().isBlank()) {
+                throw new BusinessException("La direccion de la visita es obligatoria");
+            }
+            if (request.getCity() == null || request.getCity().isBlank()) {
+                throw new BusinessException("La ciudad es obligatoria");
+            }
+            if (request.getScheduledAt() == null) {
+                throw new BusinessException("La fecha de la visita es obligatoria");
+            }
+            if (!request.getScheduledAt().isAfter(LocalDateTime.now())) {
+                throw new BusinessException("La fecha de la visita debe ser posterior a la actual");
+            }
+            if (bookingRepository.existsByProvider_IdAndScheduledAtAndStatusNotIn(
+                    service.getProvider().getId(), request.getScheduledAt(), BookingStatus.SLOT_RELEASED)) {
+                throw new BusinessException("El prestador ya tiene una visita agendada en esa fecha y hora. Elige otro horario.");
+            }
         }
 
         Booking booking = Booking.builder()
@@ -127,6 +152,14 @@ public class BookingServiceImpl implements BookingService {
     @Transactional(readOnly = true)
     public BookingDetailResponse getMineDetail(Long id) {
         return buildDetail(findOwnedByClient(id));
+    }
+
+    @Override
+    @Transactional
+    public BookingDetailResponse uploadReferenceImage(Long id, MultipartFile file) {
+        Booking booking = findOwnedByClient(id);
+        booking.setReferenceImageUrl(fileStorageService.store(file, "bookings"));
+        return buildDetail(booking);
     }
 
     @Override
@@ -288,6 +321,10 @@ public class BookingServiceImpl implements BookingService {
         if (!PROVIDER_TRANSITIONS.getOrDefault(previous, Set.of()).contains(newStatus)) {
             throw new BusinessException("No se puede mover la contratacion de " + previous + " a " + newStatus);
         }
+        if (previous == BookingStatus.SOLICITADO && newStatus == BookingStatus.ACEPTADO
+                && booking.getService().getPriceType() == PriceType.COTIZACION) {
+            throw new BusinessException("Este servicio es \"a cotizar\": envia tu cotizacion en vez de aceptar directamente");
+        }
         if (newStatus == BookingStatus.CONCLUIDO && evidenceRepository.findByBooking_IdOrderByCreatedAtAsc(id).isEmpty()) {
             throw new BusinessException("Sube al menos una evidencia antes de marcar el servicio como concluido");
         }
@@ -303,8 +340,125 @@ public class BookingServiceImpl implements BookingService {
         return buildDetail(booking);
     }
 
+    @Override
+    @Transactional
+    public BookingDetailResponse submitQuote(Long id, BookingQuoteRequest request) {
+        Booking booking = findOwnedByProvider(id);
+        if (booking.getStatus() != BookingStatus.SOLICITADO) {
+            throw new BusinessException("Solo puedes cotizar una solicitud que aun esta pendiente");
+        }
+        if (booking.getService().getPriceType() != PriceType.COTIZACION) {
+            throw new BusinessException("Este servicio no es \"a cotizar\": usa Aceptar/Rechazar directamente");
+        }
+        if (request.getEstimatedDeliveryDate() != null && !request.getEstimatedDeliveryDate().isAfter(LocalDate.now())) {
+            throw new BusinessException("La fecha estimada de entrega debe ser posterior a hoy");
+        }
+
+        List<BookingQuoteItem> items = request.getItems().stream().map(i -> {
+            BookingQuoteItem item = new BookingQuoteItem();
+            item.setConcept(i.getConcept());
+            item.setQuantity(i.getQuantity());
+            item.setUnit(i.getUnit());
+            item.setUnitCost(i.getUnitCost());
+            return item;
+        }).toList();
+        BigDecimal total = items.stream()
+                .map(i -> i.getQuantity().multiply(i.getUnitCost()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BookingStatus previous = booking.getStatus();
+        booking.setQuoteItems(items);
+        booking.setQuoteNote(request.getNote());
+        booking.setQuoteTotal(total);
+        booking.setQuoteSentAt(LocalDateTime.now());
+        booking.setEstimatedDeliveryDate(request.getEstimatedDeliveryDate());
+        booking.setStatus(BookingStatus.COTIZADO);
+        booking.setUpdatedBy(currentUser());
+        booking = bookingRepository.save(booking);
+        recordHistory(booking, previous, BookingStatus.COTIZADO, currentUser(), "Cotizacion enviada por " + total + " " + "MXN");
+
+        emailService.sendBookingStatusNotification(booking.getClient().getEmail(), booking.getFolio(), "COTIZADO");
+        notificationService.notify(booking.getClient(), booking, "BOOKING_COTIZADO",
+                titleForStatus(BookingStatus.COTIZADO), bodyForStatus(BookingStatus.COTIZADO, booking),
+                "/mis-contrataciones/" + booking.getId());
+
+        return buildDetail(booking);
+    }
+
+    @Override
+    @Transactional
+    public BookingDetailResponse acceptQuote(Long id, AcceptQuoteRequest request) {
+        Booking booking = findOwnedByClient(id);
+        if (booking.getStatus() != BookingStatus.COTIZADO) {
+            throw new BusinessException("No hay una cotizacion pendiente de respuesta");
+        }
+
+        // Este es el momento en que por fin se sabe la direccion real (no se pidio al
+        // solicitar, ver create()): a domicilio del cliente, o recoge en el sitio del
+        // prestador (del cual solo se conoce la ciudad registrada, no una calle exacta).
+        if (request.getDeliveryMethod() == DeliveryMethod.DOMICILIO) {
+            if (request.getAddressLine() == null || request.getAddressLine().isBlank()) {
+                throw new BusinessException("Indica la direccion donde se entregaria el trabajo");
+            }
+            if (request.getCity() == null || request.getCity().isBlank()) {
+                throw new BusinessException("Indica la ciudad donde se entregaria el trabajo");
+            }
+            booking.setAddressLine(request.getAddressLine());
+            booking.setCity(request.getCity());
+        } else {
+            booking.setAddressLine("Recoge en el sitio del prestador");
+            booking.setCity(booking.getProvider().getCity());
+        }
+
+        BookingStatus previous = booking.getStatus();
+        booking.setAgreedPrice(booking.getQuoteTotal());
+        // El cliente confirmo que la fecha estimada del prestador le funciona: se vuelve la
+        // fecha de la visita, aunque el prestador todavia debe confirmar para pasar a ACEPTADO.
+        if (booking.getEstimatedDeliveryDate() != null) {
+            booking.setScheduledAt(booking.getEstimatedDeliveryDate().atStartOfDay());
+        }
+        booking.setStatus(BookingStatus.COTIZACION_ACEPTADA);
+        booking.setUpdatedBy(currentUser());
+        booking = bookingRepository.save(booking);
+        recordHistory(booking, previous, BookingStatus.COTIZACION_ACEPTADA, currentUser(), "Cliente acepto la cotizacion");
+
+        emailService.sendBookingStatusNotification(booking.getProvider().getUser().getEmail(), booking.getFolio(), "COTIZACION_ACEPTADA");
+        notificationService.notify(booking.getProvider().getUser(), booking, "BOOKING_QUOTE_ACCEPTED",
+                "El cliente acepto tu cotizacion",
+                booking.getClient().getFirstName() + " " + booking.getClient().getLastName()
+                        + " acepto tu cotizacion de " + booking.getQuoteTotal() + ", confirma para agendar la visita (folio " + booking.getFolio() + ")",
+                "/prestador/contrataciones/" + booking.getId());
+
+        return buildDetail(booking);
+    }
+
+    @Override
+    @Transactional
+    public BookingDetailResponse rejectQuote(Long id, String reason) {
+        Booking booking = findOwnedByClient(id);
+        if (booking.getStatus() != BookingStatus.COTIZADO) {
+            throw new BusinessException("No hay una cotizacion pendiente de respuesta");
+        }
+        BookingStatus previous = booking.getStatus();
+        booking.setStatus(BookingStatus.RECHAZADO);
+        booking.setCancelledReason(reason);
+        booking.setUpdatedBy(currentUser());
+        booking = bookingRepository.save(booking);
+        recordHistory(booking, previous, BookingStatus.RECHAZADO, currentUser(), "Cliente rechazo la cotizacion" + (reason != null ? ": " + reason : ""));
+
+        emailService.sendBookingStatusNotification(booking.getProvider().getUser().getEmail(), booking.getFolio(), "RECHAZADO");
+        notificationService.notify(booking.getProvider().getUser(), booking, "BOOKING_QUOTE_REJECTED",
+                "El cliente rechazo tu cotizacion",
+                booking.getClient().getFirstName() + " " + booking.getClient().getLastName()
+                        + " rechazo tu cotizacion (folio " + booking.getFolio() + ")",
+                "/prestador/contrataciones/" + booking.getId());
+
+        return buildDetail(booking);
+    }
+
     private String titleForStatus(BookingStatus status) {
         return switch (status) {
+            case COTIZADO -> "Recibiste una cotizacion";
             case ACEPTADO -> "Tu solicitud fue aceptada";
             case RECHAZADO -> "Tu solicitud fue rechazada";
             case EN_PROCESO -> "Tu servicio esta en proceso";
@@ -317,6 +471,7 @@ public class BookingServiceImpl implements BookingService {
     private String bodyForStatus(BookingStatus status, Booking booking) {
         String provider = booking.getProvider().getBusinessName();
         return switch (status) {
+            case COTIZADO -> provider + " envio una cotizacion de " + booking.getQuoteTotal() + " para tu solicitud (folio " + booking.getFolio() + ")";
             case ACEPTADO -> provider + " acepto tu solicitud (folio " + booking.getFolio() + ")";
             case RECHAZADO -> provider + " rechazo tu solicitud (folio " + booking.getFolio() + ")";
             case EN_PROCESO -> provider + " comenzo a trabajar en tu servicio (folio " + booking.getFolio() + ")";
@@ -352,7 +507,10 @@ public class BookingServiceImpl implements BookingService {
 
         List<BookingSummaryResponse> proximas = bookingRepository.findByProvider_IdOrderByScheduledAtAsc(providerId).stream()
                 .filter(b -> b.getStatus() == BookingStatus.ACEPTADO || b.getStatus() == BookingStatus.EN_PROCESO)
-                .filter(b -> b.getScheduledAt().isAfter(LocalDateTime.now()))
+                // Un servicio "a cotizar" puede llegar a estos estados sin tener scheduledAt
+                // todavia (no se le pide fecha al solicitar, ver create()); sin fecha no hay
+                // "proxima visita" que mostrar aqui.
+                .filter(b -> b.getScheduledAt() != null && b.getScheduledAt().isAfter(LocalDateTime.now()))
                 .limit(5)
                 .map(bookingMapper::toSummary)
                 .toList();

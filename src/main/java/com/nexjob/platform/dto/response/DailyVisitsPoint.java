@@ -1,0 +1,15 @@
+package com.nexjob.platform.dto.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDate;
+
+@Data @Builder @NoArgsConstructor @AllArgsConstructor
+public class DailyVisitsPoint {
+    private LocalDate date;
+    private long visits;
+    private long uniqueVisitors;
+}

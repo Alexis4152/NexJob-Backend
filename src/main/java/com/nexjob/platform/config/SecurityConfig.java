@@ -2,6 +2,7 @@ package com.nexjob.platform.config;
 
 import com.nexjob.platform.security.CustomUserDetailsService;
 import com.nexjob.platform.security.JwtAuthFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -23,6 +24,8 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
+
+import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 /**
  * API stateless (JWT), sin CSRF, con endpoints publicos de catalogo/auth/soporte y el resto
@@ -50,14 +53,38 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Excepcion dentro de /api/auth/** (que es publico): renovar el token
+                        // exige que el token actual siga siendo valido, si no de que serviria.
+                        .requestMatchers(HttpMethod.POST, "/api/auth/refresh").authenticated()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()
+                        // Registro de visitas anonimas (sin login): ver PublicAnalyticsController.
+                        .requestMatchers(HttpMethod.POST, "/api/public/analytics/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/support/tickets").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/provider/**").hasRole("PROVIDER")
                         .anyRequest().authenticated()
                 )
+                // Sin esto, Spring Security responde 403 tanto para "no autenticado" (token
+                // ausente/invalido/vencido) como para "autenticado pero sin el rol necesario",
+                // y el frontend solo puede distinguir "sesion expirada" a partir de un 401 (ver
+                // interceptor de axios). Spring tambien enruta un AccessDeniedException al
+                // AuthenticationEntryPoint (no al AccessDeniedHandler) cuando considera la
+                // solicitud "anonima" segun su propia logica interna, y ademas limpia el
+                // SecurityContext justo antes de invocar el entry point -- por eso no se puede
+                // usar SecurityContextHolder aqui para distinguir los casos; se usa en su lugar
+                // el atributo que JwtAuthFilter deja en el request si el JWT si autentico.
+                .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) -> {
+                    boolean hasRealSession = Boolean.TRUE.equals(request.getAttribute(JwtAuthFilter.AUTHENTICATED_ATTRIBUTE));
+                    response.setStatus(hasRealSession ? HttpServletResponse.SC_FORBIDDEN : HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType(APPLICATION_JSON_VALUE);
+                    response.setCharacterEncoding("UTF-8");
+                    String message = hasRealSession
+                            ? "No tienes permiso para realizar esta accion"
+                            : "No has iniciado sesion o tu sesion expiro";
+                    response.getWriter().write("{\"success\":false,\"message\":\"" + message + "\"}");
+                }))
                 .userDetailsService(userDetailsService)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();

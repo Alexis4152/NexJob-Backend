@@ -2,6 +2,7 @@ package com.nexjob.platform.controller;
 
 import com.nexjob.platform.dto.ApiResponse;
 import com.nexjob.platform.dto.request.UserUpdateRequest;
+import com.nexjob.platform.dto.request.VerifyEmailCodeRequest;
 import com.nexjob.platform.dto.response.UserResponse;
 import com.nexjob.platform.service.UserService;
 import jakarta.validation.Valid;
@@ -29,5 +30,16 @@ public class UserController {
     @PostMapping(value = "/me/photo", consumes = "multipart/form-data")
     public ApiResponse<UserResponse> uploadPhoto(@RequestParam("file") MultipartFile file) {
         return ApiResponse.ok(userService.updateMyPhoto(file), "Foto de perfil actualizada");
+    }
+
+    @PostMapping("/me/email-verification/send")
+    public ApiResponse<Void> sendEmailVerification() {
+        userService.sendEmailVerificationCode();
+        return ApiResponse.ok(null, "Codigo enviado a tu correo");
+    }
+
+    @PostMapping("/me/email-verification/verify")
+    public ApiResponse<UserResponse> verifyEmail(@Valid @RequestBody VerifyEmailCodeRequest request) {
+        return ApiResponse.ok(userService.verifyEmailCode(request.getCode()), "Correo verificado");
     }
 }

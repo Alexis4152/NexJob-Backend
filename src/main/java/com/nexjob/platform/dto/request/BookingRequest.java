@@ -2,14 +2,17 @@ package com.nexjob.platform.dto.request;
 
 import com.nexjob.platform.enums.BookingUrgency;
 import com.nexjob.platform.enums.PaymentMethod;
-import jakarta.validation.constraints.Future;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.time.LocalDateTime;
 
-/** Solicitud de contratacion de un servicio: agenda la visita y describe lo que el cliente necesita. */
+/**
+ * Solicitud de contratacion de un servicio. Direccion, ciudad y fecha de la visita son
+ * obligatorias solo para servicios de precio fijo/por hora: para un servicio "a cotizar" no
+ * existe visita que agendar todavia (ver BookingServiceImpl.create, que aplica esa validacion
+ * segun el tipo de precio del servicio, no aqui, porque este DTO no conoce ese dato).
+ */
 @Data
 public class BookingRequest {
 
@@ -18,14 +21,10 @@ public class BookingRequest {
 
     private String description;
 
-    @NotBlank(message = "La direccion de la visita es obligatoria")
     private String addressLine;
 
-    @NotBlank(message = "La ciudad es obligatoria")
     private String city;
 
-    @NotNull(message = "La fecha de la visita es obligatoria")
-    @Future(message = "La fecha de la visita debe ser posterior a la actual")
     private LocalDateTime scheduledAt;
 
     @NotNull(message = "El metodo de pago es obligatorio")

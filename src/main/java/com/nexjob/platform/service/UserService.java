@@ -10,6 +10,8 @@ import org.springframework.web.multipart.MultipartFile;
 public interface UserService {
     UserResponse updateMyProfile(UserUpdateRequest request);
     UserResponse updateMyPhoto(MultipartFile file);
+    void sendEmailVerificationCode();
+    UserResponse verifyEmailCode(String code);
     Page<UserResponse> adminList(RoleName role, String q, Pageable pageable);
     UserResponse adminSetActive(Long id, boolean active);
 }

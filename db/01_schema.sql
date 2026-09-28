@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
     postal_code         VARCHAR(5),
     age                 INTEGER,
     profile_image_url   VARCHAR(255),
+    email_verified      BOOLEAN NOT NULL DEFAULT FALSE,
     role_id             BIGINT NOT NULL REFERENCES roles(id),
     is_active           BOOLEAN NOT NULL DEFAULT TRUE,
     created_at          TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -44,6 +45,17 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
     created_at          TIMESTAMP NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
+
+CREATE TABLE IF NOT EXISTS email_verification_codes (
+    id                  BIGSERIAL PRIMARY KEY,
+    user_id             BIGINT NOT NULL REFERENCES users(id),
+    code                VARCHAR(100) NOT NULL UNIQUE,
+    attempts            INTEGER NOT NULL DEFAULT 0,
+    expires_at          TIMESTAMP NOT NULL,
+    used_at             TIMESTAMP,
+    created_at          TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_email_verification_codes_user_id ON email_verification_codes(user_id);
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
 
 -- ============ CATEGORIAS DE SERVICIO ============
@@ -54,6 +66,7 @@ CREATE TABLE IF NOT EXISTS categories (
     slug                VARCHAR(120) NOT NULL UNIQUE,
     description         VARCHAR(500),
     icon                VARCHAR(10),
+    intake_fields_json  TEXT,
     is_active           BOOLEAN NOT NULL DEFAULT TRUE,
     created_at          TIMESTAMP NOT NULL DEFAULT NOW(),
     created_by_user_id  BIGINT REFERENCES users(id),
@@ -146,11 +159,20 @@ CREATE TABLE IF NOT EXISTS bookings (
     service_offering_id     BIGINT NOT NULL REFERENCES service_offerings(id),
     agreed_price            NUMERIC(12,2) NOT NULL CHECK (agreed_price >= 0),
     description             VARCHAR(1000),
-    address_line            VARCHAR(255) NOT NULL,
-    city                    VARCHAR(100) NOT NULL,
-    scheduled_at            TIMESTAMP NOT NULL,
+    -- Nulos para servicios "a cotizar" hasta que se acepte la cotizacion (ver
+    -- 23_migration_optional_visit_fields_cotizacion.sql): la validacion real vive en
+    -- BookingServiceImpl, no en la base de datos.
+    address_line            VARCHAR(255),
+    city                    VARCHAR(100),
+    reference_image_url     VARCHAR(500),
+    quote_items_json        TEXT,
+    quote_note              VARCHAR(1000),
+    quote_total             NUMERIC(12,2),
+    quote_sent_at           TIMESTAMP,
+    estimated_delivery_date DATE,
+    scheduled_at            TIMESTAMP,
     status                  VARCHAR(20) NOT NULL DEFAULT 'SOLICITADO'
-                              CHECK (status IN ('SOLICITADO','ACEPTADO','EN_PROCESO','CONCLUIDO','APROBADO','RECHAZADO','CANCELADO')),
+                              CHECK (status IN ('SOLICITADO','COTIZADO','COTIZACION_ACEPTADA','ACEPTADO','EN_PROCESO','CONCLUIDO','APROBADO','RECHAZADO','CANCELADO')),
     payment_method          VARCHAR(20) NOT NULL CHECK (payment_method IN ('EFECTIVO','TARJETA','TRANSFERENCIA')),
     urgency                 VARCHAR(20) NOT NULL DEFAULT 'PROGRAMADO' CHECK (urgency IN ('URGENTE','PRONTO','PROGRAMADO')),
     cancelled_reason        VARCHAR(500),
@@ -331,3 +353,17 @@ CREATE TABLE IF NOT EXISTS email_config (
     updated_at          TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_by_user_id  BIGINT REFERENCES users(id)
 );
+
+-- ============ ANALITICA DE VISITAS (TRAFICO ANONIMO) ============
+
+CREATE TABLE IF NOT EXISTS page_views (
+    id                  BIGSERIAL PRIMARY KEY,
+    visitor_id          VARCHAR(64) NOT NULL,
+    path                VARCHAR(255) NOT NULL,
+    referrer            VARCHAR(500),
+    duration_seconds    INTEGER,
+    created_at          TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_page_views_created_at ON page_views (created_at);
+CREATE INDEX IF NOT EXISTS idx_page_views_visitor_id ON page_views (visitor_id);

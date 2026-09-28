@@ -1,6 +1,7 @@
 package com.nexjob.platform.controller;
 
 import com.nexjob.platform.dto.ApiResponse;
+import com.nexjob.platform.dto.request.BookingQuoteRequest;
 import com.nexjob.platform.dto.request.BookingStatusUpdateRequest;
 import com.nexjob.platform.dto.response.BookingDetailResponse;
 import com.nexjob.platform.dto.response.BookingSummaryResponse;
@@ -47,6 +48,11 @@ public class ProviderBookingController {
     @PatchMapping("/{id}/status")
     public ApiResponse<BookingDetailResponse> updateStatus(@PathVariable Long id, @Valid @RequestBody BookingStatusUpdateRequest request) {
         return ApiResponse.ok(bookingService.updateStatus(id, request.getNewStatus(), request.getNote()), "Estado actualizado");
+    }
+
+    @PostMapping("/{id}/quote")
+    public ApiResponse<BookingDetailResponse> submitQuote(@PathVariable Long id, @Valid @RequestBody BookingQuoteRequest request) {
+        return ApiResponse.ok(bookingService.submitQuote(id, request), "Cotizacion enviada al cliente");
     }
 
     @PostMapping(value = "/{id}/evidence", consumes = "multipart/form-data")
